@@ -1,4 +1,4 @@
-name: Build RA2 IPA
+name: Unpack RA2 EXE
 
 on:
   workflow_dispatch:
@@ -8,56 +8,28 @@ on:
         required: true
 
 jobs:
-  build:
-    runs-on: macos-latest
+  unpack:
+    runs-on: ubuntu-latest
     steps:
-      - name: Клонирование репозитория
-        uses: actions/checkout@v4
-
-      - name: Установка утилит для сборки и распаковки
+      - name: Установка утилит распаковки
         run: |
-          brew install xcodegen ffmpeg innoextract p7zip
-          curl -fsSL https://bun.sh | bash
-          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+          sudo apt-get update
+          sudo apt-get install -y innoextract p7zip-full unrar unzip
 
-      - name: Скачивание и распаковка EXE-установщика
+      - name: Скачивание и распаковка EXE
         run: |
           mkdir -p /tmp/ra2_raw /tmp/ra2_game
           curl -L "${{ github.event.inputs.installer_url }}" -o /tmp/downloaded_file
           unzip -q /tmp/downloaded_file -d /tmp/ra2_raw || mv /tmp/downloaded_file /tmp/ra2_raw/setup.exe
           EXE_FILE=$(find /tmp/ra2_raw -iname "*.exe" | head -n 1)
           innoextract -e -d /tmp/ra2_game "$EXE_FILE" || 7z x "$EXE_FILE" -o/tmp/ra2_game -y
-          GAME_DIR=$(dirname $(find /tmp/ra2_game -iname "ra2.mix" | head -n 1))
-          echo "GAME_DIR=$GAME_DIR" >> $GITHUB_ENV
+          
+          mkdir -p game_files
+          find /tmp/ra2_game \( -iname "*.mix" -o -iname "*.ini" \) -exec cp -n {} game_files/ \;
+          ls -lh game_files/
 
-      - name: Импорт ресурсов игры
-        run: |
-          ./scripts/setup.sh "$GAME_DIR"
-
-      - name: Сборка веб-движка и Xcode проекта
-        run: |
-          cd redalert2 && bun run build
-          cd ../ios && xcodegen generate
-
-      - name: Компиляция приложения для iPad (RA2.app)
-        run: |
-          xcodebuild -project ios/RA2.xcodeproj \
-            -scheme RA2 \
-            -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
-
-      - name: Упаковка в файл RA2.ipa
-        run: |
-          mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/RA2.app Payload/
-          zip -qr RA2.ipa Payload
-
-      - name: Сохранение готового файла
+      - name: Сохранение распакованных файлов игры
         uses: actions/upload-artifact@v4
         with:
-          name: RA2-iOS
-          path: RA2.ipa
+          name: RA2-Game-Files
+          path: game_files/
