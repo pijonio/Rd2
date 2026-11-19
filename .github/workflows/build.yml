@@ -1,35 +1,13 @@
-name: Unpack RA2 EXE
+name: Test Mac Server
 
 on:
   workflow_dispatch:
-    inputs:
-      installer_url:
-        description: 'Прямая ссылка на .exe (или .zip с установщиком)'
-        required: true
 
 jobs:
-  unpack:
-    runs-on: ubuntu-latest
+  test-mac:
+    runs-on: macos-latest
     steps:
-      - name: Установка утилит распаковки
+      - name: Проверка запуска Mac
         run: |
-          sudo apt-get update
-          sudo apt-get install -y innoextract p7zip-full unrar unzip
-
-      - name: Скачивание и распаковка EXE
-        run: |
-          mkdir -p /tmp/ra2_raw /tmp/ra2_game
-          curl -L "${{ github.event.inputs.installer_url }}" -o /tmp/downloaded_file
-          unzip -q /tmp/downloaded_file -d /tmp/ra2_raw || mv /tmp/downloaded_file /tmp/ra2_raw/setup.exe
-          EXE_FILE=$(find /tmp/ra2_raw -iname "*.exe" | head -n 1)
-          innoextract -e -d /tmp/ra2_game "$EXE_FILE" || 7z x "$EXE_FILE" -o/tmp/ra2_game -y
-          
-          mkdir -p game_files
-          find /tmp/ra2_game \( -iname "*.mix" -o -iname "*.ini" \) -exec cp -n {} game_files/ \;
-          ls -lh game_files/
-
-      - name: Сохранение распакованных файлов игры
-        uses: actions/upload-artifact@v4
-        with:
-          name: RA2-Game-Files
-          path: game_files/
+          echo "Ура! Сервер Mac успешно запустился!"
+          sw_vers
